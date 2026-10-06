@@ -41,18 +41,15 @@ Fields:
 ### employees
 
 Purpose:
-
 Stores information about employees of an Organization.
 
 Relationships:
-
 - belongs to one organization
 - has zero or one user
 - belongs to zero or one supervisor
 - has one role
 
 Fields:
-
 - id - UUID
 - organization_id - UUID, foreign key → organizations.id
 - first_name - VARCHAR/TEXT
@@ -69,68 +66,43 @@ Fields:
 ### roles
 
 Purpose:
-
 Define user role within the application
 
 Relationships:
-
 - has zero or many employees
 - has zero or many permissions
 
 Fields:
-
 - id - UUID
 - name - VARCHAR/TEXT
 
 ### permissions
 
 Purpose:
-
 Define permissions grantable to each role
 
 Relationships:
-
 - has zero to many roles
 
 Fields:
-
 - id - UUID
 - name - VARCHAR/TEXT
 
 ### role_permissions
 
 Purpose:
-
 Connects roles to permissions
 
 Relationships:
-
 - belongs to one role
 - belongs to one permission
 
 Fields:
-
 - role_id - UUID, foreign key → roles.id
 - permission_id - UUID, foreign key → permissions.id
 
 Primary Key:
 role_id + permission_id (composite)
-
-
-
-recipes
-recipe_versions
-grain_bill_items
-hop_additions
-yeast_additions
-water_chemistry
-
-batches
-fermentation_events
-dry_hop_events
-yeast_harvests
-quality_control_records
-packaging_runs
 
 ### recipes
 
@@ -387,79 +359,72 @@ Fields:
 - notes - TEXT
 - next_due_date - DATE, nullable
 
-### Inventory & suppliers (simple scheme)
+### suppliers
 
-Purpose:
-Manage on-hand stock of ingredients, packaging, and materials.
+Purpose: 
+vendor contact information
 
-Tables:
+Fields:
+- id - UUID
+- organization_id - UUID, foreign key → organizations.id
+- name - VARCHAR/TEXT
+- contact_name - VARCHAR/TEXT
+- phone - VARCHAR/TEXT
+- email - VARCHAR/TEXT
+- address - VARCHAR/TEXT
 
-- suppliers
+### ingredients
 
-	Purpose: vendor contact information
+Purpose: 
+catalog of purchasable/usable items (grains, hops, yeasts, chemicals, packaging)
 
-	Fields:
-	- id - UUID
-	- organization_id - UUID, foreign key → organizations.id
-	- name - VARCHAR/TEXT
-	- contact_name - VARCHAR/TEXT
-	- phone - VARCHAR/TEXT
-	- email - VARCHAR/TEXT
-	- address - VARCHAR/TEXT
+Fields:
+- id - UUID
+- organization_id - UUID, foreign key → organizations.id
+- supplier_id - UUID, foreign key → suppliers.id, nullable
+- name - VARCHAR/TEXT
+- sku - VARCHAR/TEXT, nullable
+- ingredient_type - VARCHAR/TEXT (grain, hop, yeast, adjunct, chemical, packaging)
+- default_uom - VARCHAR/TEXT (kg,g,L,ea)
+- purchase_unit_size - NUMERIC/DECIMAL (e.g., 25 kg sack)
+- density_kg_per_l - NUMERIC/DECIMAL, nullable
+- notes - TEXT
 
-- ingredients
+### stock_items
 
-	Purpose: catalog of purchasable/usable items (grains, hops, yeasts, chemicals, packaging)
+Purpose: 
+lot-tracked stock entries for ingredients (represents physical inventory units)
 
-	Fields:
-	- id - UUID
-	- organization_id - UUID, foreign key → organizations.id
-	- supplier_id - UUID, foreign key → suppliers.id, nullable
-	- name - VARCHAR/TEXT
-	- sku - VARCHAR/TEXT, nullable
-	- ingredient_type - VARCHAR/TEXT (grain, hop, yeast, adjunct, chemical, packaging)
-	- default_uom - VARCHAR/TEXT (kg,g,L,ea)
-	- purchase_unit_size - NUMERIC/DECIMAL (e.g., 25 kg sack)
-	- density_kg_per_l - NUMERIC/DECIMAL, nullable
-	- notes - TEXT
+Fields:
+- id - UUID
+- ingredient_id - UUID, foreign key → ingredients.id
+- organization_id - UUID, foreign key → organizations.id
+- lot_code - VARCHAR/TEXT, nullable
+- quantity - NUMERIC/DECIMAL
+- uom - VARCHAR/TEXT
+- received_at - TIMESTAMP/TIMESTAMPTZ
+- best_before - DATE, nullable
+- location - VARCHAR/TEXT (silo/room/bin)
+- cost_per_unit - NUMERIC/DECIMAL, nullable
 
-- stock_items
+### inventory_transactions
 
-	Purpose: lot-tracked stock entries for ingredients (represents physical inventory units)
+Purpose: 
+ledger of inventory movements (receipts, consumption by batches, transfers, adjustments)
 
-	Fields:
-	- id - UUID
-	- ingredient_id - UUID, foreign key → ingredients.id
-	- organization_id - UUID, foreign key → organizations.id
-	- lot_code - VARCHAR/TEXT, nullable
-	- quantity - NUMERIC/DECIMAL
-	- uom - VARCHAR/TEXT
-	- received_at - TIMESTAMP/TIMESTAMPTZ
-	- best_before - DATE, nullable
-	- location - VARCHAR/TEXT (silo/room/bin)
-	- cost_per_unit - NUMERIC/DECIMAL, nullable
-
-- inventory_transactions
-
-	Purpose: ledger of inventory movements (receipts, consumption by batches, transfers, adjustments)
-
-	Fields:
-	- id - UUID
-	- organization_id - UUID, foreign key → organizations.id
-	- stock_item_id - UUID, foreign key → stock_items.id, nullable
-	- ingredient_id - UUID, foreign key → ingredients.id
-	- transaction_type - VARCHAR/TEXT (receipt, consumption, transfer, adjustment, spoilage)
-	- quantity - NUMERIC/DECIMAL (positive for increase, negative for decrease)
-	- uom - VARCHAR/TEXT
-	- related_batch_id - UUID, nullable, foreign key → batches.id
-	- related_document - VARCHAR/TEXT (e.g., PO-123)
-	- performed_by - UUID, foreign key → employees.id
-	- performed_at - TIMESTAMP/TIMESTAMPTZ
-	- notes - TEXT
-
-Notes:
-- Current stock for an ingredient can be derived by summing `inventory_transactions.quantity` grouped by `ingredient_id` (or by stock_item_id for lot-level tracking).
-- `stock_items` is optional: systems that don't track lots may omit it and use `inventory_transactions` per `ingredient_id` only.
+Fields:
+- id - UUID
+- organization_id - UUID, foreign key → organizations.id
+- stock_item_id - UUID, foreign key → stock_items.id, nullable
+- ingredient_id - UUID, foreign key → ingredients.id
+- transaction_type - VARCHAR/TEXT (receipt, consumption, transfer, adjustment, spoilage)
+- quantity - NUMERIC/DECIMAL (positive for increase, negative for decrease)
+- uom - VARCHAR/TEXT
+- related_batch_id - UUID, nullable, foreign key → batches.id
+- related_document - VARCHAR/TEXT (e.g., PO-123)
+- performed_by - UUID, foreign key → employees.id
+- performed_at - TIMESTAMP/TIMESTAMPTZ
+- notes - TEXT
 
 ### purchase_orders (basic)
 
@@ -486,9 +451,3 @@ Fields:
 - uom - VARCHAR/TEXT
 - unit_cost - NUMERIC/DECIMAL
 - received_quantity - NUMERIC/DECIMAL, default 0
-
----
-Additional notes:
-- Consider adding lightweight indexes on `ingredient_id`, `batch_id`, and `recipe_version_id` for the most queried joins.
-- Inventory adjustments should always be recorded as `inventory_transactions` with an atomic reference to the user and optional related document (e.g., QC failure, spoilage report).
-
